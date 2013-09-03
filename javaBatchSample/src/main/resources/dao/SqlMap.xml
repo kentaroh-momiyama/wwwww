@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE sqlMap
+PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap>
+
+	<select id="selectPagingMember" resultClass="com.i3systems.momiken.jbatch.Member">
+		select id, name
+		from member
+		where
+		<![CDATA[
+			id > (#_page# * #_pagesize#)
+		  and
+			id <= ( (#_page# + 1) * #_pagesize# )
+		]]>
+		order by id
+	</select>
+	
+	<insert id="insertMember2"  parameterClass="com.i3systems.momiken.jbatch.Member">
+		insert into member2( name, date) values( #name#, SYSDATE())
+	</insert>
+
+</sqlMap>

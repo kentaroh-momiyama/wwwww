@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:lang="http://www.springframework.org/schema/lang"
+	xmlns:batch="http://www.springframework.org/schema/batch"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd
+	http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+
+	<import resource="classpath:launch-context.xml" />
+
+	<batch:job id="job1" incrementer="jobParametersIncrementer">
+		<batch:step id="step">
+			<batch:partition step="step01" partitioner="partitioner">
+				<batch:handler grid-size="2" task-executor="taskExecutor" />
+			</batch:partition>
+		</batch:step>
+	</batch:job>
+
+	<!-- 各スレッドで実行するステップ -->
+	<batch:step id="step01" >
+		<batch:tasklet transaction-manager="transactionManager">
+			<batch:chunk writer="itemWriter1" reader="itemReader1" commit-interval="1" />
+			<batch:listeners>
+				<batch:listener ref="outputFileListener"/>
+			</batch:listeners>
+		</batch:tasklet>
+	</batch:step>
+
+
+	<!-- enables the functionality of JobOperator.startNextInstance(jobName) -->
+	<bean id="jobParametersIncrementer" class="org.springframework.batch.core.launch.support.RunIdIncrementer" />
+
+	<!-- ファイルを読み込むパーティショナー -->
+	<bean id="partitioner" class="org.springframework.batch.core.partition.support.MultiResourcePartitioner">
+		<property name="resources" value="file:test/in/delimited*.txt" />
+	</bean>
+	
+	<!-- 非同期タスクExecutor  -->
+	<bean id="taskExecutor" class="org.springframework.core.task.SimpleAsyncTaskExecutor" />
+
+	<!-- 出力ファイル名をStepExecutionContextに設定するリスナー -->
+	<!-- bean id="outputFileListener" class="com.i3systems.momiken.jbatch.OutputFileListener"/ -->
+	<!-- bean id="outputFileListener" class="listener.output_file_listener"/ -->
+	<lang:jruby id="outputFileListener"
+		script-interfaces="org.springframework.batch.core.StepExecutionListener"
+		script-source="classpath:lib/listener/output_file_listener.rb">
+	</lang:jruby>
+
+	<bean id="itemReader1" scope="step" autowire-candidate="false" parent="itemReaderParent">
+		<property name="resource" value="#{stepExecutionContext[fileName]}" />
+	</bean>
+
+	<bean id="itemReaderParent" class="org.springframework.batch.item.file.FlatFileItemReader" abstract="true">
+		<property name="lineMapper">
+			<bean class="org.springframework.batch.item.file.mapping.DefaultLineMapper">
+				<property name="lineTokenizer">
+					<bean class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer">
+						<property name="delimiter" value="," />
+						<property name="names" value="name,credit,k" />
+					</bean>
+				</property>
+				<property name="fieldSetMapper">
+					<bean class="org.springframework.batch.item.file.mapping.PassThroughFieldSetMapper" />
+				</property>
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="itemWriter1" class="org.springframework.batch.item.file.FlatFileItemWriter" scope="step">
+	<property name="resource" value="file:test/out/#{stepExecutionContext[outFile]}" />
+	<property name="lineAggregator">
+		<bean class="org.springframework.batch.item.file.transform.DelimitedLineAggregator">
+			<property name="delimiter" value="," />
+			<property name="fieldExtractor">
+				<bean class="org.springframework.batch.item.file.transform.PassThroughFieldExtractor" />
+			</property>
+		</bean>
+	</property>
+	</bean>
+
+</beans>

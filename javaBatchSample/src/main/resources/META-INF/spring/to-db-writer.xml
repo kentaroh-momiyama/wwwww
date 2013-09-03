@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:lang="http://www.springframework.org/schema/lang"
+	xmlns:batch="http://www.springframework.org/schema/batch"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd
+	http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	
+	<import resource="classpath:launch-context.xml" />
+	
+	<!-- ジョブの設定 -->
+<job id="job1" xmlns="http://www.springframework.org/schema/batch"
+ incrementer="jobParametersIncrementer">
+  <step id="step1" parent="simpleStep">
+    <tasklet>
+      <chunk reader="itemReader" writer="itemWriter" />
+    </tasklet>
+  </step>
+</job>
+ 
+<!-- enables the functionality of JobOperator.startNextInstance(jobName) -->
+<bean id="jobParametersIncrementer"
+  class="org.springframework.batch.core.launch.support.RunIdIncrementer" />
+
+<bean id="simpleStep"
+  class="org.springframework.batch.core.step.item.SimpleStepFactoryBean" abstract="true">
+    <property name="jobRepository" ref="jobRepository" />
+    <property name="commitInterval" value="1000" />
+</bean>
+ 
+<!-- iBatisの設定 -->
+<bean id="sqlMapClient" class="org.springframework.orm.ibatis.SqlMapClientFactoryBean"> 
+    <property name="dataSource" ref="dataSource"/>
+    <property name="configLocation" value="classpath:dao/SqlMapConfig.xml"/>
+</bean>
+ 
+<!-- DBのItemReaderの設定 -->
+<bean id="itemReader" class="org.springframework.batch.item.database.IbatisPagingItemReader" >
+    <property name="sqlMapClient" ref="sqlMapClient"/>
+    <property name="queryId" value="selectPagingMember"/>
+    <property name="pageSize" value="10000"/>
+</bean>
+
+<!-- DBのItemWriterの設定 -->
+<bean id="itemWriter" class="org.springframework.batch.item.database.IbatisBatchItemWriter">
+    <property name="sqlMapClient" ref="sqlMapClient" />
+    <property name="statementId" value="insertMember2" />
+</bean>
+ 
+</beans>
+

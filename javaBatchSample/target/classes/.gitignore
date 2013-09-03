@@ -1,0 +1,16 @@
+/.bundle
+/.idea
+/Gemfile
+/Gemfile.lock
+/META-INF
+/README
+/Rakefile
+/app
+/batch.properties
+/com
+/config.ru
+/dao
+/launch-context.xml
+/lib
+/log4j.properties
+/spec

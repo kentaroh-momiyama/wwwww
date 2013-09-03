@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+	xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:lang="http://www.springframework.org/schema/lang"
+	xmlns:batch="http://www.springframework.org/schema/batch"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd
+	http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	
+	<import resource="classpath:launch-context.xml" />
+	
+	<batch:job id="webserverlog" incrementer="jobParametersIncrementer">
+		<batch:listeners>
+			<batch:listener ref="jobListener"/>
+		</batch:listeners>
+		<batch:step id="mobilefilter">
+			<batch:tasklet transaction-manager="transactionManager" >
+			<batch:listeners>
+				<batch:listener ref="itemProcessListener"/>
+				<batch:listener ref="stepListener"/>
+			</batch:listeners>
+			<batch:chunk reader="itemReader" processor="itemProcessor" writer="itemWriter" commit-interval="10"/>
+			</batch:tasklet>
+		</batch:step>
+		<!-- batch:step id="mobileanalyzer">
+			<batch:batchlet ref="com.i3systems.momiken.jbatch.webserverlog.MobileBatchlet"></batch:batchlet>
+			<batch:end on="COMPLETED"/>
+		</batch:step -->
+	</batch:job>
+
+	<!-- enables the functionality of JobOperator.startNextInstance(jobName) -->
+	<bean id="jobParametersIncrementer" class="org.springframework.batch.core.launch.support.RunIdIncrementer" />
+
+	<!-- bean id="jobListener" class="com.i3systems.momiken.jbatch.webserverlog.InfoJobListener" /-->
+	<lang:jruby id="jobListener"
+		script-interfaces="org.springframework.batch.core.JobExecutionListener"
+		script-source="classpath:lib/listener/info_job_listener.rb">
+	</lang:jruby>
+	
+	<bean id="stepListener" class="com.i3systems.momiken.jbatch.webserverlog.InfoStepListener" />
+	
+	<!-- bean id="itemProcessListener" class="com.i3systems.momiken.jbatch.webserverlog.InfoItemReadListener" / -->
+	
+	<!-- bean id="itemProcessListener" class="com.i3systems.momiken.jbatch.webserverlog.InfoItemProcessListener" / -->
+	<lang:jruby id="itemProcessListener"
+		script-interfaces="org.springframework.batch.core.ItemProcessListener"
+		script-source="classpath:lib/listener/info_item_process_listener.rb">
+	</lang:jruby>
+
+	<bean id="itemReader" scope="step" autowire-candidate="false" class="org.springframework.batch.item.file.FlatFileItemReader">
+		<property name="resource" value="file:test/in/log1.txt" />
+		<property name="lineMapper" ref="defaultLineMapper">
+			<!-- bean class="com.i3systems.momiken.jbatch.webserverlog.DefaultLineMapper">
+			</bean -->
+		</property>
+	</bean>
+	<lang:jruby id="defaultLineMapper"
+		script-interfaces="org.springframework.batch.item.file.LineMapper,org.springframework.beans.factory.InitializingBean"
+		script-source="classpath:lib/chunk/file/default_line_mapper.rb">
+	</lang:jruby>
+	
+	<!-- bean id="itemProcessor" scope="step" class="com.i3systems.momiken.jbatch.webserverlog.LogLineProcessor">
+		<property name="browsersStr" value="Tablet Browser D,Tablet Browser E"/>
+	</bean -->
+	<lang:jruby id="itemProcessor" scope="step"
+		script-interfaces="org.springframework.batch.item.ItemProcessor"
+		script-source="classpath:lib/chunk/file/log_line_processor.rb">
+		<lang:property name="browsersStr" value="Tablet Browser D,Tablet Browser E"/>
+	</lang:jruby>
+
+	<bean id="itemWriter" class="org.springframework.batch.item.file.FlatFileItemWriter" scope="step">
+		<property name="resource" value="file:test/out/filterred1.txt" />
+		<property name="lineAggregator" ref="logLineLineAggregator"/>
+	</bean>
+	<!-- bean class="com.i3systems.momiken.jbatch.webserverlog.LogLineLineAggregator"/-->
+	<lang:jruby id="logLineLineAggregator"
+		script-interfaces="org.springframework.batch.item.file.transform.LineAggregator"
+		script-source="classpath:lib/chunk/file/log_line_line_aggregator.rb">
+	</lang:jruby>
+
+
+</beans>
